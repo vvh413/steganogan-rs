@@ -4,7 +4,7 @@ Trying to port [SteganoGAN](https://github.com/DAI-Lab/SteganoGAN/) to Rust usin
 
 ## Progress
 
-Implemented `dense` variant of SteganoGAN architecture, so it is possible to reexport weights to safetensors and load them here. Already reexported weights are in [safetensors/](safetensors/) dir.
+Implemented `dense` variant of SteganoGAN architecture, so it is possible to reexport weights to safetensors and load them here. Already reexported weights are in [pretrained/](pretrained/) dir.
 
 Now there are some troubles with batch-norm layer:
   1. Not working as expected. Same weights, same hyperparams (or not?), same running mean and var. But different output.
