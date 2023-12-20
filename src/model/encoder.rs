@@ -27,9 +27,7 @@ impl Encoder {
       add_image: true,
     })
   }
-}
 
-impl Encoder {
   pub fn forward(&self, image: &Tensor, data: &Tensor) -> candle_core::Result<Tensor> {
     let mut x = self.initial.forward(image)?;
     let mut xc = Tensor::cat(&[data, &x], 1)?;
@@ -129,7 +127,7 @@ conv4
     let device = &candle_core::Device::Cpu;
     let mut varmap = VarMap::new();
     let vb = VarBuilder::from_varmap(&varmap, candle_core::DType::F32, device);
-    let encoder = Encoder::new(8, 32, vb)?;
+    let encoder = Encoder::new(8, 32, vb.clone())?;
     varmap.load("pretrained/encoder.safetensors")?;
     let image = Tensor::new(&[0.2f32], device)?.broadcast_as((1, 3, 127, 127))?;
     let data = Tensor::new(&[0.3f32], device)?.broadcast_as((1, 8, 127, 127))?;

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use candle_core::Device;
-use candle_nn::VarBuilder;
+use candle_nn::{VarBuilder, VarMap};
 use model::decoder::Decoder;
 use model::encoder::Encoder;
 
@@ -10,10 +10,16 @@ mod utils;
 
 fn main() -> Result<()> {
   let device = &Device::cuda_if_available(0)?;
-  let vb = unsafe { VarBuilder::from_mmaped_safetensors(&["encoder.safetensors"], candle_core::DType::F32, device)? };
-  let encoder = Encoder::new(8, 32, vb)?;
-  let vb = unsafe { VarBuilder::from_mmaped_safetensors(&["decoder.safetensors"], candle_core::DType::F32, device)? };
-  let decoder = Decoder::new(8, 32, vb)?;
+
+  let mut enc_varmap = VarMap::new();
+  let vb = VarBuilder::from_varmap(&enc_varmap, candle_core::DType::F32, device);
+  let encoder = Encoder::new(8, 32, vb.clone())?;
+  enc_varmap.load("pretrained/encoder.safetensors")?;
+
+  let mut dec_varmap = VarMap::new();
+  let vb = VarBuilder::from_varmap(&dec_varmap, candle_core::DType::F32, device);
+  let decoder = Decoder::new(8, 32, vb.clone())?;
+  dec_varmap.load("pretrained/encoder.safetensors")?;
 
   let img = image::open("/media/c/pic/coffee.png")?;
   let img_bytes = img.to_rgb8().into_raw();

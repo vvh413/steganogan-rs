@@ -25,9 +25,7 @@ impl Decoder {
       out: conv2d(3 * hidden_size, data_depth, 3, conv_config, vb.pp("conv4.0"))?,
     })
   }
-}
 
-impl Decoder {
   pub fn forward(&self, x: &Tensor) -> candle_core::Result<Tensor> {
     let mut x = self.initial.forward(x)?;
     let mut xc = Tensor::cat(&[&x], 1)?;
