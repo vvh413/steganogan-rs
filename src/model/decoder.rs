@@ -30,7 +30,6 @@ impl Decoder {
     let mut x = self.initial.forward(x)?;
     let mut xc = x;
     for layer in self.convs.iter() {
-      println!("{xc}");
       x = layer.forward(&xc)?;
       xc = Tensor::cat(&[&xc, &x], 1)?;
     }
@@ -110,7 +109,7 @@ conv4
     let vb = VarBuilder::from_varmap(&varmap, candle_core::DType::F32, device);
     let decoder = Decoder::new(8, 32, vb.clone())?;
     varmap.load("pretrained/decoder.safetensors")?;
-    let conv4bias = vec![
+    let conv4bias = [
       0.020432772,
       0.062261935,
       -0.062574305,
@@ -132,9 +131,8 @@ conv4
     let vb = VarBuilder::from_varmap(&varmap, candle_core::DType::F32, device);
     let decoder = Decoder::new(8, 32, vb)?;
     varmap.load("pretrained/decoder.safetensors")?;
-    let out = decoder
-      .forward(&(Tensor::ones((1, 3, 127, 127), candle_core::DType::F32, device)? * 0.2)?)?
-      .mean_all()?;
+    let x = (Tensor::ones((1, 3, 127, 127), candle_core::DType::F32, device)? * 0.2)?;
+    let out = decoder.forward(&x)?.mean_all()?;
     assert_eq!(candle_core::test_utils::to_vec0_round(&out, 3)?, -0.141);
     Ok(())
   }

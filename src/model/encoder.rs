@@ -116,7 +116,7 @@ conv4
     let vb = VarBuilder::from_varmap(&varmap, candle_core::DType::F32, device);
     let encoder = Encoder::new(8, 32, vb.clone())?;
     varmap.load("pretrained/encoder.safetensors")?;
-    let conv4bias = vec![-0.0060789185, 0.03809108, -0.018308492];
+    let conv4bias = [-0.0060789185, 0.03809108, -0.018308492];
     assert_eq!(vb.get((3,), "conv4.0.bias")?.to_vec1::<f32>()?, conv4bias);
     assert_eq!(encoder.out.bias().unwrap().to_vec1::<f32>()?, conv4bias);
     Ok(())
@@ -132,7 +132,7 @@ conv4
     let image = (Tensor::ones((1, 3, 127, 127), candle_core::DType::F32, device)? * 0.2)?;
     let data = (Tensor::ones((1, 8, 127, 127), candle_core::DType::F32, device)? * 0.3)?;
     let out = encoder.forward(&image, &data)?.mean_all()?;
-    assert_eq!(candle_core::test_utils::to_vec0_round(&out, 3)?, 0.201f32);
+    assert_eq!(candle_core::test_utils::to_vec0_round(&out, 3)?, 0.201);
     Ok(())
   }
 }
