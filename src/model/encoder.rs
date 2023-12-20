@@ -99,8 +99,7 @@ conv4
   #[test]
   fn test_out_shape() -> Result<()> {
     let varmap = VarMap::new();
-    // let device = &candle_core::Device::cuda_if_available(0)?;
-    let device = &candle_core::Device::Cpu;
+    let device = &candle_core::Device::cuda_if_available(0)?;
     let vb = VarBuilder::from_varmap(&varmap, candle_core::DType::F32, device);
     let encoder = Encoder::new(4, 32, vb)?;
     let image = Tensor::randn(0f32, 1f32, (16, 3, 127, 127), device)?;
@@ -125,13 +124,13 @@ conv4
 
   #[test]
   fn test_forward() -> Result<()> {
-    let device = &candle_core::Device::Cpu;
+    let device = &candle_core::Device::cuda_if_available(0)?;
     let mut varmap = VarMap::new();
     let vb = VarBuilder::from_varmap(&varmap, candle_core::DType::F32, device);
     let encoder = Encoder::new(8, 32, vb.clone())?;
     varmap.load("pretrained/encoder.safetensors")?;
-    let image = Tensor::new(&[0.2f32], device)?.broadcast_as((1, 3, 127, 127))?;
-    let data = Tensor::new(&[0.3f32], device)?.broadcast_as((1, 8, 127, 127))?;
+    let image = (Tensor::ones((1, 3, 127, 127), candle_core::DType::F32, device)? * 0.2)?;
+    let data = (Tensor::ones((1, 8, 127, 127), candle_core::DType::F32, device)? * 0.3)?;
     let out = encoder.forward(&image, &data)?.mean_all()?;
     assert_eq!(candle_core::test_utils::to_vec0_round(&out, 3)?, 0.201f32);
     Ok(())

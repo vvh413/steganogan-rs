@@ -15,11 +15,7 @@ impl ConvBlock {
       padding: 1,
       ..Default::default()
     };
-    let bn_config = BatchNormConfig {
-      eps: 1e-5,
-      remove_mean: true,
-      affine: true,
-    };
+    let bn_config = BatchNormConfig::default();
     Ok(Self {
       conv: conv2d(in_channels, out_channels, 3, conv_config, vb.pp("0"))?,
       bn: batch_norm(out_channels, bn_config, vb.pp("2"))?,
