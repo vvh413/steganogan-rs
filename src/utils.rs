@@ -4,16 +4,32 @@ use anyhow::Result;
 use candle_nn::VarMap;
 use lazy_static::lazy_static;
 
+const CHUNK_SIZE: usize = 120;
 lazy_static! {
-  static ref RS_ENC: reed_solomon::Encoder = reed_solomon::Encoder::new(250);
-  static ref RS_DEC: reed_solomon::Decoder = reed_solomon::Decoder::new(250);
+  static ref RS_ENC: reed_solomon::Encoder = reed_solomon::Encoder::new(255 - CHUNK_SIZE);
+  static ref RS_DEC: reed_solomon::Decoder = reed_solomon::Decoder::new(255 - CHUNK_SIZE);
 }
 
-pub fn data_to_bits(data: &[u8]) -> Vec<u8> {
+pub fn bytes_to_bits(data: &[u8]) -> Vec<u8> {
+  data
+    .iter()
+    .flat_map(|byte| {
+      let mut byte = *byte;
+      let mut bits = Vec::new();
+      for _ in 0..8 {
+        bits.push(byte & 1);
+        byte >>= 1;
+      }
+      bits
+    })
+    .collect()
+}
+
+pub fn data_to_encoded_bits(data: &[u8]) -> Vec<u8> {
   let compressed =
     miniz_oxide::deflate::compress_to_vec(data, miniz_oxide::deflate::CompressionLevel::DefaultLevel as u8);
   compressed
-    .chunks(5)
+    .chunks(CHUNK_SIZE)
     .flat_map(|chunk| RS_ENC.encode(chunk).to_vec())
     .flat_map(|mut byte| {
       let mut bits = Vec::new();
@@ -26,15 +42,20 @@ pub fn data_to_bits(data: &[u8]) -> Vec<u8> {
     .collect()
 }
 
-pub fn bytes_to_data(bytes: &[u8]) -> Result<Vec<u8>> {
-  let decoded: Vec<_> = bytes
-    .chunks(255)
-    .map(|chunk| RS_DEC.correct(chunk, None).map(|corrected| corrected.data().to_vec()))
-    .collect::<Result<Vec<_>, reed_solomon::DecoderError>>()
-    .map_err(|e| anyhow::Error::msg(format!("{e:?}")))?;
+pub fn encoded_bytes_to_data(bytes: &[u8]) -> Result<Vec<u8>> {
+  let mut decoded = Vec::with_capacity(bytes.len() / 255 * CHUNK_SIZE);
+  for chunk in bytes.chunks(255) {
+    let decoded_chunk = match RS_DEC.correct(chunk, None) {
+      Ok(decoded_chunk) => decoded_chunk.data().to_vec(),
+      Err(_) => chunk.iter().take(CHUNK_SIZE).copied().collect(),
+    };
+    decoded.extend(decoded_chunk);
+  }
 
-  let decoded: Vec<_> = decoded.iter().flatten().copied().collect();
-  miniz_oxide::inflate::decompress_to_vec(&decoded).map_err(|e| anyhow::Error::msg(format!("{e:?}")))
+  match miniz_oxide::inflate::decompress_to_vec(&decoded) {
+    Ok(decompressed) => Ok(decompressed),
+    Err(err) => Ok(err.output),
+  }
 }
 
 pub fn bits_to_bytes(bits: &[u8]) -> Vec<u8> {
@@ -42,6 +63,26 @@ pub fn bits_to_bytes(bits: &[u8]) -> Vec<u8> {
     .chunks(8)
     .map(|byte| byte.iter().enumerate().map(|(i, bit)| bit << i).sum())
     .collect()
+}
+
+pub fn split_bytes<'a>(bytes: &'a [u8], delimeter: &[u8]) -> Vec<&'a [u8]> {
+  let idxs: Vec<usize> = bytes
+    .windows(4)
+    .enumerate()
+    .filter(|(_, window)| *window == delimeter)
+    .map(|(idx, _)| idx)
+    .collect();
+  let mut parts = Vec::new();
+  let mut cur = bytes;
+  for idx in idxs.iter().rev() {
+    if idx + 4 > cur.len() {
+      continue;
+    }
+    let (other, part) = cur.split_at(idx + 4);
+    parts.push(part);
+    cur = other.split_at(*idx).0;
+  }
+  parts
 }
 
 #[derive(Debug)]
@@ -109,8 +150,8 @@ mod tests {
   #[test]
   fn test() -> Result<()> {
     let data = vec![1, 2, 3, 4, 5, 6];
-    let bits = data_to_bits(&data);
-    assert_eq!(data, bytes_to_data(&bits_to_bytes(&bits))?);
+    let bits = data_to_encoded_bits(&data);
+    assert_eq!(data, encoded_bytes_to_data(&bits_to_bytes(&bits))?);
     Ok(())
   }
 }

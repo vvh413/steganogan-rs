@@ -13,6 +13,7 @@ candle-core = { git = "https://github.com/huggingface/candle.git", version = "0.
 candle-nn = { git = "https://github.com/huggingface/candle.git", version = "0.3.1", features = [
   "cuda",
 ] }
+clap = { version = "4.4.11", features = ["derive"] }
 image = "0.24.7"
 lazy_static = "1.4.0"
 miniz_oxide = "0.7.1"
