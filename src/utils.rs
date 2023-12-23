@@ -4,10 +4,11 @@ use anyhow::Result;
 use candle_nn::VarMap;
 use lazy_static::lazy_static;
 
-const CHUNK_SIZE: usize = 120;
+const CHUNK_SIZE: usize = 5;
+const ENCODED_SIZE: usize = 30;
 lazy_static! {
-  static ref RS_ENC: reed_solomon::Encoder = reed_solomon::Encoder::new(255 - CHUNK_SIZE);
-  static ref RS_DEC: reed_solomon::Decoder = reed_solomon::Decoder::new(255 - CHUNK_SIZE);
+  static ref RS_ENC: reed_solomon::Encoder = reed_solomon::Encoder::new(ENCODED_SIZE - CHUNK_SIZE);
+  static ref RS_DEC: reed_solomon::Decoder = reed_solomon::Decoder::new(ENCODED_SIZE - CHUNK_SIZE);
 }
 
 pub fn bytes_to_bits(data: &[u8]) -> Vec<u8> {
@@ -25,7 +26,7 @@ pub fn bytes_to_bits(data: &[u8]) -> Vec<u8> {
     .collect()
 }
 
-pub fn data_to_encoded_bits(data: &[u8]) -> Vec<u8> {
+pub fn bytes_to_encoded_bits(data: &[u8]) -> Vec<u8> {
   let compressed =
     miniz_oxide::deflate::compress_to_vec(data, miniz_oxide::deflate::CompressionLevel::DefaultLevel as u8);
   compressed
@@ -43,10 +44,10 @@ pub fn data_to_encoded_bits(data: &[u8]) -> Vec<u8> {
 }
 
 pub fn encoded_bytes_to_data(bytes: &[u8]) -> Result<Vec<u8>> {
-  let mut decoded = Vec::with_capacity(bytes.len() / 255 * CHUNK_SIZE);
-  for chunk in bytes.chunks(255) {
-    let decoded_chunk = match RS_DEC.correct(chunk, None) {
-      Ok(decoded_chunk) => decoded_chunk.data().to_vec(),
+  let mut decoded = Vec::with_capacity(bytes.len() / ENCODED_SIZE * CHUNK_SIZE);
+  for chunk in bytes.chunks(ENCODED_SIZE) {
+    let decoded_chunk: Vec<u8> = match RS_DEC.correct(chunk, None) {
+      Ok(decoded_chunk) => decoded_chunk.iter().take(CHUNK_SIZE).copied().collect(),
       Err(_) => chunk.iter().take(CHUNK_SIZE).copied().collect(),
     };
     decoded.extend(decoded_chunk);
@@ -150,7 +151,7 @@ mod tests {
   #[test]
   fn test() -> Result<()> {
     let data = vec![1, 2, 3, 4, 5, 6];
-    let bits = data_to_encoded_bits(&data);
+    let bits = bytes_to_encoded_bits(&data);
     assert_eq!(data, encoded_bytes_to_data(&bits_to_bytes(&bits))?);
     Ok(())
   }

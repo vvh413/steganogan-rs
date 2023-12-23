@@ -57,7 +57,7 @@ fn encode(args: EncodeArgs) -> Result<()> {
   let img_tensor = ((img_tensor.to_dtype(candle_core::DType::F32)? / 127.5)? - 1.)?;
 
   let data_size = (img.height() * img.width() * 8) as usize;
-  let mut message = utils::bytes_to_bits(args.data.as_bytes());
+  let mut message = utils::bytes_to_encoded_bits(args.data.as_bytes());
   message.extend([0; 32]);
   let mut data = message.clone();
   while data.len() < data_size {
@@ -113,9 +113,14 @@ fn decode(args: DecodeArgs) -> Result<()> {
   let parts = utils::split_bytes(data.as_slice(), &[0; 4]);
   let mut results: HashMap<String, usize> = HashMap::new();
   for part in parts.iter() {
-    match String::from_utf8(part.to_vec()) {
-      Ok(result) if !result.is_empty() => map_inc(&mut results, result),
-      Ok(_) | Err(_) => continue,
+    match utils::encoded_bytes_to_data(part).and_then(|part| Ok(String::from_utf8(part)?)) {
+      Ok(result) => {
+        let result = result.replace('\0', "");
+        if !result.is_empty() {
+          map_inc(&mut results, result)
+        }
+      }
+      Err(_) => continue,
     }
   }
   match results.iter().max_by_key(|(_, v)| *v).map(|(k, _)| k) {
